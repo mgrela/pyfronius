@@ -5,7 +5,8 @@ import aiohttp
 import sys
 import argparse
 import time
-from structlog import get_logger
+import structlog
+import logging
 import random
 from types import SimpleNamespace
 from urllib.parse import urlparse, urljoin
@@ -19,6 +20,7 @@ config = SimpleNamespace(
     datamanager_url = "http://datamanager",
     reconnect_delay = 30,
     fuzz_reconnect_delay = True,
+    polling_interval = 30,
 
     # MQTT settings
     broker_url = 'mqtt://localhost',
@@ -26,7 +28,7 @@ config = SimpleNamespace(
 )
 
 async def main(config):
-    log = get_logger()
+    log = structlog.get_logger()
 
     log.debug('starting', config=config)
 
@@ -82,22 +84,13 @@ async def main(config):
                         powerflow = await solarapi.powerflow_realtime()
                         log.debug('realtime power flow', header=json.dumps(powerflow.head), powerflow=json.dumps(powerflow.body))
 
-                        print(json.dumps(datamanager_client.data._data, indent=4))
+                        # PV Power
+                        pv_power = datamanager_client.vfs.get('/site/P_PV')
 
-                        # Energy counters
-                        e_day = powerflow.body['Data']['Site']['E_Day']
-                        e_total = powerflow.body['Data']['Site']['E_Total']
-                        e_year = powerflow.body['Data']['Site']['E_Year']
-
-                        await mqtt_client.publish(urljoin(config.topic_base, 'site/e_day'), payload=json.dumps(dict(v=e_day,u='Wh')), qos=1, retain=True)
-                        await mqtt_client.publish(urljoin(config.topic_base, 'site/e_total'), payload=json.dumps(dict(v=e_total,u='Wh')), qos=1, retain=True)
-                        await mqtt_client.publish(urljoin(config.topic_base, 'site/e_year'), payload=json.dumps(dict(v=e_year,u='Wh')), qos=1, retain=True)
-
-                        pv_power = powerflow.body['Data']['Site']['P_PV']
                         if pv_power:
-                            await mqtt_client.publish(urljoin(config.topic_base, 'site/pv_power'), payload=json.dumps(dict(v=pv_power,u='W')))
+                            await mqtt_client.publish(urljoin(config.topic_base, 'site/P_PV'), payload=json.dumps(pv_power))
                     
-                        await asyncio.sleep(30)
+                        await asyncio.sleep(config.polling_interval)
         except Exception as e:
             log.error('main loop exception', exc_info=e)
 
@@ -109,6 +102,21 @@ async def main(config):
         await asyncio.sleep(delay)
 
 if __name__ == "__main__":
+
+    structlog.configure(
+        processors=[
+            structlog.processors.add_log_level,
+            structlog.processors.StackInfoRenderer(),
+            structlog.dev.set_exc_info,
+            structlog.processors.format_exc_info,
+            structlog.processors.TimeStamper(),
+            structlog.dev.ConsoleRenderer()
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=False
+    )
 
     parser = argparse.ArgumentParser(description="Scrape statistics from Fronius Datamanager and send them to an MQTT broker")
     parser.add_argument("--broker-url", metavar="URL", required=True, help="Send data to specified MQTT broker URL")

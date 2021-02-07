@@ -75,7 +75,7 @@ class SolarApiCommon(object):
         Reference: 42,0410,2011     002-06082013    3.4 GetLoggerInfo request
         Reference: 42,0410,2012,EN  013-02062020    3.4 GetLoggerInfo request
         '''  
-        return await self.session.api_request('GetLoggerInfo.cgi')
+        return await self.client.api_request('GetLoggerInfo.cgi')
 
     async def inverter_info(self):
         '''
@@ -84,7 +84,7 @@ class SolarApiCommon(object):
         '''
         inv = {}
 
-        resp = await self.session.api_request('GetInverterInfo.cgi')
+        resp = await self.client.api_request('GetInverterInfo.cgi')
         
         for (id, info) in resp.body['Data'].items():
             # Populate model names and inverter status text
@@ -94,7 +94,7 @@ class SolarApiCommon(object):
             # The CustomName field is sometimes HTML encoded (likely a counter-XSS measure)
             info['CustomName'] = html.unescape(info['CustomName'])
 
-            inv[ os.path.join(DeviceClasses.Inverter, id) ] = info
+            inv[ os.path.join(str(DeviceClasses.Inverter), id) ] = info
 
         return inv
 
@@ -116,7 +116,7 @@ class SolarApiV0(SolarApiCommon):
         params = dict(Scope=str(Scopes.System), DataCollection=kwargs.get('collection', 'CommonInverterData'))
         if 'device_id' in kwargs:
             params.update(dict(Scope=str(Scopes.Device), DeviceIndex=kwargs['device_id']))
-        return await self.session.api_request('GetInverterRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetInverterRealtimeData.cgi', params=params)
 
 
     async def sensor_realtime(self, **kwargs):
@@ -124,7 +124,7 @@ class SolarApiV0(SolarApiCommon):
         Reference: 42,0410,2011     002-06082013    3.2 GetSensorRealtimeData request
         '''
         params = dict(DeviceIndex=kwargs['device_id'], DataCollection=kwargs.get('collection', 'NowSensorData'))
-        return await self.session.api_request('GetSensorRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetSensorRealtimeData.cgi', params=params)
 
 
     async def string_realtime(self, **kwargs):
@@ -135,7 +135,7 @@ class SolarApiV0(SolarApiCommon):
         if 'period' in kwargs:
             params.update(dict(TimePeriod=kwargs['period']))
 
-        return await self.session.api_request('GetStringRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetStringRealtimeData.cgi', params=params)
 
     # logger_info is implememted in the common class
     # Reference: 42,0410,2011     002-06082013    3.4 GetLoggerInfo request
@@ -159,7 +159,7 @@ class SolarApiV0(SolarApiCommon):
             device_classes = set([ DeviceClasses.Inverter, DeviceClasses.SensorCard, DeviceClasses.StringControl ])
 
         for device_class in device_classes:
-            resp = await self.session.api_request('GetActiveDeviceInfo.cgi', params=dict(DeviceClass=str(device_class)))
+            resp = await self.client.api_request('GetActiveDeviceInfo.cgi', params=dict(DeviceClass=str(device_class)))
             for (device_id, d) in resp.body['Data'].items():
                 devs[ os.path.join(device_class, device_id) ]= Device(device_class=DeviceClasses[device_class], device_id=device_id, device_type=d['DT'])
 
@@ -181,7 +181,7 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=str(Scopes.System), DataCollection=kwargs.get('collection', 'CommonInverterData'))
         if 'device_id' in kwargs:
             params.update(dict(Scope=str(Scopes.Device), DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetInverterRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetInverterRealtimeData.cgi', params=params)
 
     async def sensor_realtime(self, **kwargs):
         '''
@@ -190,7 +190,7 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=str(Scopes.System), DataCollection=kwargs.get('collection', 'NowSensorData'))
         if 'device_id' in kwargs:
             params.update(dict(Scope=str(Scopes.Device), DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetSensorRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetSensorRealtimeData.cgi', params=params)
 
     async def string_realtime(self, **kwargs):
         '''
@@ -199,7 +199,7 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=str(Scopes.System), DataCollection=kwargs.get('collection', 'NowStringControlData'))
         if 'device_id' in kwargs:
             params.update(dict(Scope=str(Scopes.Device), DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetStringRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetStringRealtimeData.cgi', params=params)
 
     # logger_info is implememted in the common class
     # Reference: 42,0410,2012,EN  013-02062020    3.4 GetLoggerInfo request
@@ -208,7 +208,7 @@ class SolarApiV1(SolarApiCommon):
         '''
         Reference: 42,0410,2012,EN  013-02062020    3.5 GetLoggerLEDInfo request
         '''
-        return await self.session.api_request('GetLoggerLEDInfo.cgi')
+        return await self.client.api_request('GetLoggerLEDInfo.cgi')
 
     # inverter_info is implememted in the common class
     # Reference: 42,0410,2012,EN  013-02062020    3.6 GetInverterInfo request
@@ -221,7 +221,7 @@ class SolarApiV1(SolarApiCommon):
         device_classes = kwargs.get('device_classes', set([DeviceClasses.System]))
 
         for device_class in device_classes:
-            resp = await self.session.api_request('GetActiveDeviceInfo.cgi', params=dict(DeviceClass=str(device_class)))
+            resp = await self.client.api_request('GetActiveDeviceInfo.cgi', params=dict(DeviceClass=str(device_class)))
 
             if device_class == DeviceClasses.System:
                 # System device class has a different response format:
@@ -261,7 +261,7 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=Scopes.System)
         if 'device_id' in kwargs:
             params.update(dict(Scope=Scopes.Device, DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetMeterRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetMeterRealtimeData.cgi', params=params)
 
     async def storage_realtime(self, **kwargs):
         '''
@@ -270,7 +270,7 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=Scopes.System)
         if 'device_id' in kwargs:
             params.update(dict(Scope=Scopes.Device, DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetStorageRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetStorageRealtimeData.cgi', params=params)
 
     async def ohmpilot_realtime(self, **kwargs):
         '''
@@ -279,13 +279,13 @@ class SolarApiV1(SolarApiCommon):
         params = dict(Scope=Scopes.System)
         if 'device_id' in kwargs:
             params.update(dict(Scope=Scopes.Device, DeviceId=kwargs['device_id']))
-        return await self.session.api_request('GetOhmPilotRealtimeData.cgi', params=params)
+        return await self.client.api_request('GetOhmPilotRealtimeData.cgi', params=params)
 
     async def powerflow_realtime(self):
         '''
         Reference: 42,0410,2012,EN  013-02062020    3.11 GetPowerFlowRealtimeData request
         '''
-        v = await self.session.api_request('GetPowerFlowRealtimeData.fcgi')
+        v = await self.client.api_request('GetPowerFlowRealtimeData.fcgi')
         self._unpack_powerflow_realtime(v.body['Data'])
         return v
 
@@ -305,7 +305,7 @@ class SolarApiV1(SolarApiCommon):
 
         Status code '2' appears to mean that the service is connected.
         '''
-        return self.session.api_request('GetLoggerConnectionInfo.cgi')
+        return self.client.api_request('GetLoggerConnectionInfo.cgi')
     
     #
     # JSON data unpacking to different sensors and updating the VFS.
@@ -313,7 +313,7 @@ class SolarApiV1(SolarApiCommon):
     # populates the VFS making it much easier to navigate the data generated by the datalogger
     # The datapoints schema is based on SenML (https://tools.ietf.org/html/rfc8428).
     #
-    def _unpack_item(data, key, **kwargs):
+    def _unpack_item(self, data, key, **kwargs):
         '''
         Unpack a single item from a dict and create a data point from it.
         Can apply arbitrary properties to the data points as well as convert the value if needed.
@@ -334,7 +334,7 @@ class SolarApiV1(SolarApiCommon):
             del kwargs['u']
 
         p.update(kwargs) # Apply the rest of kwargs as data point properties
-        self.session.data.put(os.path.join(path, key), p)
+        self.vfs.put(os.path.join(path, key), p)
 
     def _unpack_powerflow_realtime(self, data):
         '''
@@ -364,7 +364,7 @@ class SolarApiV1(SolarApiCommon):
         self._unpack_item(site, 'E_Total', u='Wh', **common)
 
         for (id, data) in data.get('Inverters', {}).items():
-            common = dict(path=os.path.join('Inverters', id), ts=ts)
+            common = dict(path=os.path.join(str(DeviceClasses.Inverter), id), ts=ts)
 
             self._unpack_item(data, 'DT', **common)
             self._unpack_item(data, 'P', u='W', **common)
